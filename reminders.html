@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DementiaLink</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="bg-success text-white py-3">
+        <div class="container">
+            <h1 class="mb-0">DementiaLink</h1>
+        </div>
+    </header>
+
+    <div class="container my-4">
+        <h3>Set Reminder</h3>
+        <form id="reminderForm">
+            <div class="mb-3">
+                <label for="reminderMessage" class="form-label">Reminder Message:</label>
+                <input type="text" class="form-control" id="reminderMessage" required>
+            </div>
+            <div class="mb-3">
+                <label for="reminderTime" class="form-label">Reminder Time:</label>
+                <input type="datetime-local" class="form-control" id="reminderTime" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Set Reminder</button>
+        </form>
+
+        <div id="reminderList" class="mt-4">
+            <h4>Current Reminders:</h4>
+            <ul id="reminderItems" class="list-group">
+                <!-- Reminder items will be dynamically added here -->
+            </ul>
+        </div>
+
+        <a href="geo.html" class="btn btn-secondary mt-3">Back to Main Page</a>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5uZccOcy9Lsm-3qJspgJ38KemMe5G54w",
+            authDomain: "ecspro-268aa.firebaseapp.com",
+            databaseURL: "https://ecspro-268aa-default-rtdb.firebaseio.com/",
+            projectId: "ecspro-268aa",
+            storageBucket: "ecspro-268aa.appspot.com",
+            messagingSenderId: "259162778834",
+            appId: "1:259162778834:web:557901eef5253a3697110b"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        const reminderForm = document.getElementById('reminderForm');
+        const reminderItems = document.getElementById('reminderItems');
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                loadReminders();
+            } else {
+                window.location.href = 'index.html'; // Redirect to main page if not logged in
+            }
+        });
+
+        reminderForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = document.getElementById('reminderMessage').value;
+            const time = document.getElementById('reminderTime').value;
+            setReminder(message, time);
+        });
+
+        function setReminder(message, time) {
+            if (auth.currentUser) {
+                const reminderId = Date.now().toString();
+                const reminderRef = database.ref(`users/${auth.currentUser.uid}/reminders/${reminderId}`);
+                reminderRef.set({
+                    message: message,
+                    time: time
+                }).then(() => {
+                    alert('Reminder set successfully!');
+                    loadReminders();
+                    reminderForm.reset();
+                }).catch(error => {
+                    console.error("Error setting reminder:", error);
+                    alert('Failed to set reminder. Please try again.');
+                });
+            } else {
+                alert('You must be logged in to set reminders.');
+            }
+        }
+
+        function loadReminders() {
+            if (auth.currentUser) {
+                const remindersRef = database.ref(`users/${auth.currentUser.uid}/reminders`);
+                remindersRef.on('value', (snapshot) => {
+                    reminderItems.innerHTML = '';
+                    snapshot.forEach((childSnapshot) => {
+                        const reminder = childSnapshot.val();
+                        const reminderId = childSnapshot.key;
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.innerHTML = `
+                            <span>${reminder.message} - ${new Date(reminder.time).toLocaleString()}</span>
+                            <button class="btn btn-danger btn-sm" onclick="deleteReminder('${reminderId}')">Delete</button>
+                        `;
+                        reminderItems.appendChild(li);
+                    });
+                });
+            }
+        }
+
+        function deleteReminder(reminderId) {
+            if (auth.currentUser) {
+                const reminderRef = database.ref(`users/${auth.currentUser.uid}/reminders/${reminderId}`);
+                reminderRef.remove()
+                    .then(() => {
+                        alert('Reminder deleted successfully!');
+                    })
+                    .catch((error) => {
+                        console.error("Error deleting reminder:", error);
+                        alert('Failed to delete reminder. Please try again.');
+                    });
+            } else {
+                alert('You must be logged in to delete reminders.');
+            }
+        }
+    </script>
+</body>
+</html>

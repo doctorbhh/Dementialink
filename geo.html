@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DementiaLink</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .content {
+            flex: 1 0 auto;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            border: 2px solid #4CAF50;
+            border-radius: 10px;
+        }
+        .btn-primary {
+            background-color: #4CAF50;
+            border-color: #4CAF50;
+        }
+        .btn-primary:hover {
+            background-color: #45a049;
+            border-color: #45a049;
+        }
+        #reminderPage {
+            display: none;
+        }
+        #fallAlertContainer {
+            display: none;
+        }
+        @media (max-width: 767px) {
+            .header-nav {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .header-nav .nav-item {
+                margin-right: 0;
+                margin-bottom: 0.5rem;
+            }
+            .header-nav .dropdown-menu {
+                position: static;
+                float: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="bg-success text-white py-3">
+        <div class="container d-flex justify-content-between align-items-center">
+            <h1 class="mb-0">DementiaLink</h1>
+            <nav class="header-nav" id="menuNav">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Menu
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" id="resetHomeBtn">Reset Home Location</a></li>
+                        <li><a class="dropdown-item" href="#" id="toggleHomeTracking">
+                            <span id="trackingStatus">Start Home Tracking</span>
+                        </a></li>
+                        <li><a class="dropdown-item" href="reminders.html">Set Reminders</a></li>
+                        <li><a class="dropdown-item" href="game.html">Counting Game</a></li>
+
+                        <li><a class="dropdown-item" href="#" id="logout">Logout</a></li>
+                    </ul>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <div class="content container my-4">
+        <div id="login" class="text-center">
+            <h3>Email Login</h3>
+            <form id="emailLoginForm">
+                <div class="mb-3">
+                    <input type="email" class="form-control" id="emailInput" placeholder="Email" required>
+                </div>
+                <div class="mb-3">
+                    <input type="password" class="form-control" id="passwordInput" placeholder="Password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login with Email</button>
+            </form>
+            <p class="mt-2">Don't have an account? <a href="#" id="showSignUpLink">Sign Up</a></p>
+        </div>
+
+        <div id="signUp" class="text-center" style="display:none;">
+            <h3>Sign Up</h3>
+            <form id="signUpForm">
+                <div class="mb-3">
+                    <input type="email" class="form-control" id="signUpEmail" placeholder="Email" required>
+                </div>
+                <div class="mb-3">
+                    <input type="password" class="form-control" id="signUpPassword" placeholder="Password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Sign Up</button>
+            </form>
+            <p class="mt-2">Already have an account? <a href="#" id="showLoginLink">Login</a></p>
+        </div>
+
+        <div id="profile" class="text-center" style="display:none;">
+            <h2>Welcome, <span id="username"></span></h2>
+        </div>
+
+        <div id="locationForm" class="mt-4" style="display:none;">
+            <h3>Set Home Location</h3>
+            <div class="mb-3">
+                <label for="latitude" class="form-label">Latitude:</label>
+                <input type="text" class="form-control" id="latitude" placeholder="Enter Latitude">
+            </div>
+            <div class="mb-3">
+                <label for="longitude" class="form-label">Longitude:</label>
+                <input type="text" class="form-control" id="longitude" placeholder="Enter Longitude">
+            </div>
+            <button id="setManualHomeBtn" class="btn btn-primary">Set Home Location Manually</button>
+            <button id="useLocationServiceBtn" class="btn btn-info">Use My Current Location</button>
+        </div>
+        <div id="fallAlertContainer" class="alert alert-danger">
+            <p>Alert: Fall detected! Please check on the patient.</p>
+            <button id="patientSafeBtn" class="btn btn-success">Patient is Safe</button>
+        </div>
+
+        <div id="mapContainer" style="display:none;">
+            <div id="map" class="my-4"></div>
+            <button id="fullscreenBtn" class="btn btn-secondary">View Map in Fullscreen</button>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white py-3 mt-4">
+        <div class="container text-center">
+            <p>&copy; 2024 DementiaLink. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5uZccOcy9Lsm-3qJspgJ38KemMe5G54w",
+            authDomain: "ecspro-268aa.firebaseapp.com",
+            databaseURL: "https://ecspro-268aa-default-rtdb.firebaseio.com/",
+            projectId: "ecspro-268aa",
+            storageBucket: "ecspro-268aa.appspot.com",
+            messagingSenderId: "259162778834",
+            appId: "1:259162778834:web:557901eef5253a3697110b"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        let map;
+        let homeLocation = null;
+        let homeMarker = null;
+        let geofenceCircle = null;
+        let patientMarker = null;
+        const geofenceRadius = 20; // meters
+
+        const loginDiv = document.getElementById('login');
+        const signUpDiv = document.getElementById('signUp');
+        const profileDiv = document.getElementById('profile');
+        const locationFormDiv = document.getElementById('locationForm');
+        const mapContainerDiv = document.getElementById('mapContainer');
+        const usernameDisplay = document.getElementById('username');
+
+
+
+        const menuNav = document.getElementById('menuNav');
+
+        function toggleMenuVisibility() {
+            if (loginDiv.style.display === 'block' || signUpDiv.style.display === 'block') {
+                menuNav.style.display = 'none';
+            } else {
+                menuNav.style.display = 'flex';
+            }
+        }
+
+        // Call this function on page load and whenever the display state changes
+        document.getElementById('showSignUpLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            loginDiv.style.display = 'none';
+            signUpDiv.style.display = 'block';
+            toggleMenuVisibility();
+        });
+
+        document.getElementById('showLoginLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            signUpDiv.style.display = 'none';
+            loginDiv.style.display = 'block';
+            toggleMenuVisibility();
+        });
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                loginDiv.style.display = 'none';
+                signUpDiv.style.display = 'none';
+                profileDiv.style.display = 'block';
+                locationFormDiv.style.display = 'block';
+                mapContainerDiv.style.display = 'block';
+                usernameDisplay.innerText = user.displayName || user.email;
+                initializeMap();
+                startFallDetectionTracking(user.uid);
+                stopHomeTracking();
+
+                const userRef = database.ref('users/' + user.uid);
+                userRef.once('value').then(snapshot => {
+                    const userData = snapshot.val();
+                    if (userData && userData.homeLocation) {
+                        homeLocation = userData.homeLocation;
+                        drawGeofence(homeLocation);
+                        startLocationTracking(user.uid);
+                    }
+                });
+            } else {
+                loginDiv.style.display = 'block';
+                signUpDiv.style.display = 'none';
+                profileDiv.style.display = 'none';
+                locationFormDiv.style.display = 'none';
+                mapContainerDiv.style.display = 'none';
+                stopHomeTracking();
+            }
+            toggleMenuVisibility();
+        });
+
+        function initializeMap() {
+            if (!map) {
+                map = L.map('map').setView([37.4219999, -122.0840575], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+            }
+        }
+        document.getElementById('emailLoginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            auth.signInWithEmailAndPassword(email, password).catch(error => {
+                console.error("Email Sign-In Error:", error);
+                alert("Login failed: " + error.message);
+            });
+        });
+
+        document.getElementById('signUpForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signUpEmail').value;
+            const password = document.getElementById('signUpPassword').value;
+            auth.createUserWithEmailAndPassword(email, password).then((userCredential) => {
+                // User signed up successfully
+                const user = userCredential.user;
+                console.log("User signed up:", user);
+            }).catch(error => {
+                console.error("Sign-Up Error:", error);
+                alert("Sign-up failed: " + error.message);
+            });
+        });
+
+        document.getElementById('showSignUpLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            loginDiv.style.display = 'none';
+            signUpDiv.style.display = 'block';
+        });
+
+        document.getElementById('showLoginLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            signUpDiv.style.display = 'none';
+            loginDiv.style.display = 'block';
+        });
+
+        document.getElementById('logout').addEventListener('click', () => {
+            auth.signOut().catch(error => {
+                console.error("Sign Out Error:", error);
+            });
+        });
+
+        document.getElementById('resetHomeBtn').addEventListener('click', () => {
+            if (auth.currentUser) {
+                homeLocation = null;
+                const userRef = database.ref('users/' + auth.currentUser.uid);
+                userRef.child('homeLocation').remove().then(() => {
+                    if (homeMarker) {
+                        map.removeLayer(homeMarker);
+                    }
+                    if (geofenceCircle) {
+                        map.removeLayer(geofenceCircle);
+                    }
+                    alert('Home location has been reset.');
+                }).catch(error => {
+                    console.error("Reset Home Location Error:", error);
+                });
+            }
+        });
+
+        document.getElementById('setManualHomeBtn').addEventListener('click', () => {
+            const lat = parseFloat(document.getElementById('latitude').value);
+            const lng = parseFloat(document.getElementById('longitude').value);
+
+            if (isNaN(lat) || isNaN(lng)) {
+                alert('Please enter valid latitude and longitude.');
+                return;
+            }
+
+            setHomeLocation(lat, lng);
+        });
+
+        document.getElementById('useLocationServiceBtn').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    setHomeLocation(lat, lng);
+                }, error => {
+                    alert('Error getting location: ' + error.message);
+                });
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        });
+
+        function setHomeLocation(lat, lng) {
+            if (auth.currentUser) {
+                homeLocation = { lat, lng };
+
+                const userRef = database.ref('users/' + auth.currentUser.uid);
+                userRef.update({ homeLocation }).then(() => {
+                    console.log("Home location set successfully:", homeLocation);
+                    drawGeofence(homeLocation);
+                    startLocationTracking(auth.currentUser.uid);
+                }).catch(error => {
+                    console.error("Error setting home location:", error);
+                });
+            } else {
+                console.error("No user is currently logged in");
+            }
+        }
+
+        function drawGeofence(location) {
+            if (homeMarker) {
+                map.removeLayer(homeMarker);
+            }
+            if (geofenceCircle) {
+                map.removeLayer(geofenceCircle);
+            }
+
+            homeMarker = L.marker([location.lat, location.lng]).addTo(map)
+                .bindPopup('Home Location');
+
+            geofenceCircle = L.circle([location.lat, location.lng], {
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.2,
+                radius: geofenceRadius
+            }).addTo(map);
+
+            map.setView([location.lat, location.lng], 13);
+        }
+
+        function startLocationTracking(userId) {
+            console.log("Starting location tracking for user:", userId);
+            const patientLocationRef = database.ref(`users/${userId}/location`);
+            patientLocationRef.on('value', snapshot => {
+                const location = snapshot.val();
+                console.log("Received location data:", location);
+                if (location && location.latitude && location.longitude && homeLocation) {
+                    const lat = parseFloat(location.latitude);
+                    const lng = parseFloat(location.longitude);
+
+                    if (isNaN(lat) || isNaN(lng)) {
+                        console.error('Invalid location data:', location);
+                        return;
+                    }
+
+                    console.log('Valid patient location:', lat, lng);
+                    updatePatientMarker(lat, lng);
+                    checkGeofence(lat, lng);
+                } else {
+                    if (!location) console.log("No location data available");
+                    if (!location.latitude || !location.longitude) console.log("Incomplete location data");
+                    if (!homeLocation) console.log("Home location not set");
+                    console.log('Waiting for valid patient location or home location...');
+                }
+            }, error => {
+                console.error("Error fetching patient location:", error);
+            });
+        }
+
+        function updatePatientMarker(lat, lng) {
+            if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+                console.error('Invalid coordinates for patient marker:', lat, lng);
+                return;
+            }
+
+            try {
+                if (patientMarker) {
+                    patientMarker.setLatLng([lat, lng]);
+                } else {
+                    patientMarker = L.marker([lat, lng], {
+                        icon: L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34],
+                            shadowSize: [41, 41]
+                        })
+                    }).addTo(map);
+                }
+                patientMarker.bindPopup('Patient Location').openPopup();
+                map.setView([lat, lng], 13);
+            } catch (error) {
+                console.error('Error updating patient marker:', error);
+            }
+        }
+        function checkGeofence(lat, lng) {
+            if (!homeLocation) {
+                console.log('Home location not set. Cannot check geofence.');
+                return;
+            }
+
+            const distance = calculateDistance(homeLocation.lat, homeLocation.lng, lat, lng);
+            console.log('Distance from home:', distance.toFixed(2), 'km');
+            
+            if (distance * 1000 > geofenceRadius) {
+                alert(`Geofence Alert: The patient has moved ${(distance * 1000).toFixed(0)} meters from home, which is beyond the ${geofenceRadius} meter limit.`);
+            }
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of the Earth in kilometers
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a = 
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const distance = R * c; // Distance in kilometers
+            return distance;
+        }
+
+        function deg2rad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            const mapElement = document.getElementById('map');
+            if (mapElement.requestFullscreen) {
+                mapElement.requestFullscreen();
+            } else if (mapElement.mozRequestFullScreen) { // Firefox
+                mapElement.mozRequestFullScreen();
+            } else if (mapElement.webkitRequestFullscreen) { // Chrome, Safari and Opera
+                mapElement.webkitRequestFullscreen();
+            } else if (mapElement.msRequestFullscreen) { // IE/Edge
+                mapElement.msRequestFullscreen();
+            }
+        });
+        
+        function startFallDetectionTracking(userId) {
+            console.log("Starting fall detection tracking for user:", userId);
+            const fallDetectionRef = database.ref(`users/${userId}/fallDetected`);
+            
+            fallDetectionRef.on('value', snapshot => {
+                const fallDetected = snapshot.val();
+                console.log("Fall detection status:", fallDetected);
+
+                if (fallDetected) {
+                    displayFallAlert();
+                } else {
+                    hideFallAlert();
+                }
+            }, error => {
+                console.error("Error fetching fall detection status:", error);
+            });
+        }
+
+        function displayFallAlert() {
+            const fallAlertContainer = document.getElementById('fallAlertContainer');
+            fallAlertContainer.style.display = 'block';
+            alert('Fall detected! Please check on the patient.');
+        }
+
+        function hideFallAlert() {
+            const fallAlertContainer = document.getElementById('fallAlertContainer');
+            fallAlertContainer.style.display = 'none';
+        }
+        let isHomeTracking = false;
+        let homeTrackingInterval = null;
+
+        // Add this after other document.ready event listeners
+        document.getElementById('toggleHomeTracking').addEventListener('click', () => {
+            if (!auth.currentUser) {
+                alert('Please log in to use home tracking.');
+                return;
+            }
+
+            isHomeTracking = !isHomeTracking;
+            const trackingStatus = document.getElementById('trackingStatus');
+            
+            if (isHomeTracking) {
+                trackingStatus.textContent = 'Stop Home Tracking';
+                startHomeTracking();
+            } else {
+                trackingStatus.textContent = 'Start Home Tracking';
+                stopHomeTracking();
+            }
+        });
+
+        function startHomeTracking() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser');
+                return;
+            }
+
+            homeTrackingInterval = setInterval(() => {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        updateHomeLocation(lat, lng);
+                    },
+                    error => {
+                        console.error('Error getting location:', error);
+                        stopHomeTracking();
+                        alert('Failed to get location: ' + error.message);
+                    }
+                );
+            }, 60000); // Update every minute
+
+            // Initial location update
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    updateHomeLocation(lat, lng);
+                },
+                error => {
+                    console.error('Error getting initial location:', error);
+                    stopHomeTracking();
+                    alert('Failed to get initial location: ' + error.message);
+                }
+            );
+        }
+
+        function stopHomeTracking() {
+            if (homeTrackingInterval) {
+                clearInterval(homeTrackingInterval);
+                homeTrackingInterval = null;
+            }
+            isHomeTracking = false;
+            document.getElementById('trackingStatus').textContent = 'Start Home Tracking';
+        }
+
+        function updateHomeLocation(lat, lng) {
+            if (auth.currentUser) {
+                const userRef = database.ref('users/' + auth.currentUser.uid);
+                userRef.update({
+                    homeLocation: { lat, lng },
+                    lastUpdated: new Date().toISOString()
+                }).then(() => {
+                    console.log('Home location updated:', { lat, lng });
+                    drawGeofence({ lat, lng });
+                }).catch(error => {
+                    console.error('Error updating home location:', error);
+                });
+            }
+        }
+
+
+
+        document.getElementById('patientSafeBtn').addEventListener('click', () => {
+            if (auth.currentUser) {
+                const fallDetectionRef = database.ref(`users/${auth.currentUser.uid}/fallDetected`);
+                fallDetectionRef.set(false).then(() => {
+                    console.log("Fall detection status reset successfully");
+                    hideFallAlert();
+                }).catch(error => {
+                    console.error("Error resetting fall detection status:", error);
+                    alert("Failed to reset fall detection status. Please try again.");
+                });
+            } else {
+                console.error("No user is currently logged in");
+                alert("You must be logged in to perform this action.");
+            }
+        });
+
+
+
+
+
+
+        // Uncomment the following function and its call to simulate patient movement (for testing purposes)
+        
+        /*function simulatePatientMovement(userId) {
+            const patientLocationRef = database.ref(`users/${userId}/location`);
+            let lat = 16.49541;
+            let lng = 80.500385;
+
+            setInterval(() => {
+                lat += (Math.random() - 0.5) * 0.001;
+                lng += (Math.random() - 0.5) * 0.001;
+                patientLocationRef.set({ latitude: lat, longitude: lng });
+            }, 50000); // Update every 5 seconds
+        }
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                simulatePatientMovement(user.uid);
+            }
+        });*/
+        
+    </script>
+</body>
+</html>

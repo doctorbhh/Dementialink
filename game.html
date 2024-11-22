@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DementiaLink</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="bg-success text-white py-3">
+        <div class="container">
+            <h1 class="mb-0">DementiaLink</h1>
+        </div>
+    </header>
+<body>
+    <div class="container text-center mt-5">
+        <h1>Counting Game</h1>
+        <button id="startGame" class="btn btn-success">Start Game</button>
+        <button id="stopGame" class="btn btn-danger">Stop Game</button>
+        <h3 class="mt-4">Score: <span id="score">0</span></h3>
+        <h4 class="mt-4">Analytics</h4>
+        <p>Correct Answers: <span id="correctAnswers">0</span></p>
+        <p>Wrong Answers: <span id="wrongAnswers">0</span></p>
+        <p>Accuracy: <span id="accuracy">0</span>%</p>
+        <p class="mt-4">Dementia Improvement: <span id="analyticsMessage">Calculating...</span></p>
+        <a href="geo.html" class="btn btn-secondary mt-3">Back to Main Page</a>
+    </div>
+    
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5uZccOcy9Lsm-3qJspgJ38KemMe5G54w",
+            authDomain: "ecspro-268aa.firebaseapp.com",
+            databaseURL: "https://ecspro-268aa-default-rtdb.firebaseio.com/",
+            projectId: "ecspro-268aa",
+            storageBucket: "ecspro-268aa.appspot.com",
+            messagingSenderId: "259162778834",
+            appId: "1:259162778834:web:557901eef5253a3697110b"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const userId = "u0ihwAGudWXYo3yQoTEdNHUkgp82"; // Replace with dynamic user ID logic
+
+        const startButton = document.getElementById('startGame');
+        const stopButton = document.getElementById('stopGame');
+        const scoreDisplay = document.getElementById('score');
+        const correctAnswersDisplay = document.getElementById('correctAnswers');
+        const wrongAnswersDisplay = document.getElementById('wrongAnswers');
+        const accuracyDisplay = document.getElementById('accuracy');
+        const analyticsMessage = document.getElementById('analyticsMessage');
+
+        
+
+        // Start Game
+        startButton.addEventListener('click', () => {
+            database.ref(`/users/${userId}/game/control`).set("start");
+        });
+
+        // Stop Game
+        stopButton.addEventListener('click', () => {
+            database.ref(`/users/${userId}/game/control`).set("stop");
+        });
+
+        // Update Score
+        database.ref(`/users/${userId}/game/score`).on('value', (snapshot) => {
+            scoreDisplay.textContent = snapshot.val() || 0;
+        });
+
+        // Update Correct Answers
+        database.ref(`/users/${userId}/game/correctAnswers`).on('value', (snapshot) => {
+            const correctAnswers = snapshot.val() || 0;
+            correctAnswersDisplay.textContent = correctAnswers;
+
+            updateAnalytics(); // Update analytics when correct answers change
+        });
+
+        // Update Wrong Answers
+        database.ref(`/users/${userId}/game/wrongAnswers`).on('value', (snapshot) => {
+            const wrongAnswers = snapshot.val() || 0;
+            wrongAnswersDisplay.textContent = wrongAnswers;
+
+            updateAnalytics(); // Update analytics when wrong answers change
+        });
+
+        // Calculate and Update Accuracy
+        function updateAccuracy() {
+            const correctAnswers = parseInt(correctAnswersDisplay.textContent) || 0;
+            const wrongAnswers = parseInt(wrongAnswersDisplay.textContent) || 0;
+
+            const totalAnswers = correctAnswers + wrongAnswers;
+            const accuracy = totalAnswers > 0 ? ((correctAnswers / totalAnswers) * 100).toFixed(2) : 0;
+
+            accuracyDisplay.textContent = accuracy;
+        }
+
+        // Update Analytics for Dementia Improvements
+        function updateAnalytics() {
+            const correctAnswers = parseInt(correctAnswersDisplay.textContent) || 0;
+            const wrongAnswers = parseInt(wrongAnswersDisplay.textContent) || 0;
+
+            const accuracy = parseFloat(accuracyDisplay.textContent) || 0;
+
+            // Provide insights based on accuracy and trends
+            if (accuracy > 80) {
+                analyticsMessage.textContent = "Great progress! High accuracy indicates good cognitive abilities.";
+            } else if (accuracy >= 50) {
+                analyticsMessage.textContent = "Moderate progress. Consistent practice can help improve further.";
+            } else if (accuracy < 50 && correctAnswers > wrongAnswers) {
+                analyticsMessage.textContent = "Needs improvement. Focus on accuracy and memory retention.";
+            } else if (correctAnswers <= wrongAnswers) {
+                analyticsMessage.textContent = "Consider more frequent practice for better performance.";
+            } else {
+                analyticsMessage.textContent = "Calculating insights...";
+            }
+
+            // Update accuracy display
+            updateAccuracy();
+        }
+
+    </script>
+</body>
+</html>
