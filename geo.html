@@ -5,50 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DementiaLink</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-        .content {
-            flex: 1 0 auto;
-        }
-        #map {
-            height: 400px;
-            width: 100%;
-            border: 2px solid #4CAF50;
-            border-radius: 10px;
-        }
-        .btn-primary {
-            background-color: #4CAF50;
-            border-color: #4CAF50;
-        }
-        .btn-primary:hover {
-            background-color: #45a049;
-            border-color: #45a049;
-        }
-        #reminderPage {
-            display: none;
-        }
-        #fallAlertContainer {
-            display: none;
-        }
+        body { display: flex; flex-direction: column; min-height: 100vh; }
+        .content { flex: 1 0 auto; }
+        #map { height: 400px; width: 100%; border: 2px solid #4CAF50; border-radius: 10px; }
+        .btn-primary { background-color: #4CAF50; border-color: #4CAF50; }
+        .btn-primary:hover { background-color: #45a049; border-color: #45a049; }
+        #reminderPage, #fallAlertContainer { display: none; }
         @media (max-width: 767px) {
-            .header-nav {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .header-nav .nav-item {
-                margin-right: 0;
-                margin-bottom: 0.5rem;
-            }
-            .header-nav .dropdown-menu {
-                position: static;
-                float: none;
-            }
+            .header-nav { flex-direction: column; align-items: flex-start; }
+            .header-nav .nav-item { margin-right: 0; margin-bottom: 0.5rem; }
+            .header-nav .dropdown-menu { position: static; float: none; }
         }
+        #chatContainer {
+            display: none; position: fixed; bottom: 20px; right: 20px; width: 320px; height: 450px;
+            background: white; border: 1px solid #4CAF50; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            flex-direction: column; z-index: 1000;
+        }
+        #chatHeader { background: #4CAF50; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        #chatMessages { flex: 1; padding: 10px; overflow-y: auto; background: #f9f9f9; }
+        #chatInputContainer { padding: 10px; border-top: 1px solid #ddd; display: flex; gap: 5px; }
+        #chatInput { flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; }
+        #sendChatBtn { padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 3px; }
+        #sendChatBtn:hover { background: #45a049; }
+        .message { margin: 8px 0; padding: 8px 12px; border-radius: 5px; max-width: 80%; word-wrap: break-word; }
+        .user-message { background: #4CAF50; color: white; margin-left: auto; }
+        .ai-message { background: #e0e0e0; margin-right: auto; }
+        #aiIcon {
+            position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; background-color: #4CAF50;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 999; transition: transform 0.2s;
+        }
+        #aiIcon:hover { transform: scale(1.1); background-color: #45a049; }
+        #aiIcon img { width: 30px; height: 30px; }
+        #chatContainer.open + #aiIcon { display: none; }
     </style>
 </head>
 <body>
@@ -57,17 +48,12 @@
             <h1 class="mb-0">DementiaLink</h1>
             <nav class="header-nav" id="menuNav">
                 <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Menu
-                    </a>
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Menu</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="#" id="resetHomeBtn">Reset Home Location</a></li>
-                        <li><a class="dropdown-item" href="#" id="toggleHomeTracking">
-                            <span id="trackingStatus">Start Home Tracking</span>
-                        </a></li>
+                        <li><a class="dropdown-item" href="#" id="toggleHomeTracking"><span id="trackingStatus">Start Home Tracking</span></a></li>
                         <li><a class="dropdown-item" href="reminders.html">Set Reminders</a></li>
                         <li><a class="dropdown-item" href="game.html">Counting Game</a></li>
-
                         <li><a class="dropdown-item" href="#" id="logout">Logout</a></li>
                     </ul>
                 </div>
@@ -79,12 +65,8 @@
         <div id="login" class="text-center">
             <h3>Email Login</h3>
             <form id="emailLoginForm">
-                <div class="mb-3">
-                    <input type="email" class="form-control" id="emailInput" placeholder="Email" required>
-                </div>
-                <div class="mb-3">
-                    <input type="password" class="form-control" id="passwordInput" placeholder="Password" required>
-                </div>
+                <div class="mb-3"><input type="email" class="form-control" id="emailInput" placeholder="Email" required></div>
+                <div class="mb-3"><input type="password" class="form-control" id="passwordInput" placeholder="Password" required></div>
                 <button type="submit" class="btn btn-primary">Login with Email</button>
             </form>
             <p class="mt-2">Don't have an account? <a href="#" id="showSignUpLink">Sign Up</a></p>
@@ -93,12 +75,8 @@
         <div id="signUp" class="text-center" style="display:none;">
             <h3>Sign Up</h3>
             <form id="signUpForm">
-                <div class="mb-3">
-                    <input type="email" class="form-control" id="signUpEmail" placeholder="Email" required>
-                </div>
-                <div class="mb-3">
-                    <input type="password" class="form-control" id="signUpPassword" placeholder="Password" required>
-                </div>
+                <div class="mb-3"><input type="email" class="form-control" id="signUpEmail" placeholder="Email" required></div>
+                <div class="mb-3"><input type="password" class="form-control" id="signUpPassword" placeholder="Password" required></div>
                 <button type="submit" class="btn btn-primary">Sign Up</button>
             </form>
             <p class="mt-2">Already have an account? <a href="#" id="showLoginLink">Login</a></p>
@@ -110,14 +88,8 @@
 
         <div id="locationForm" class="mt-4" style="display:none;">
             <h3>Set Home Location</h3>
-            <div class="mb-3">
-                <label for="latitude" class="form-label">Latitude:</label>
-                <input type="text" class="form-control" id="latitude" placeholder="Enter Latitude">
-            </div>
-            <div class="mb-3">
-                <label for="longitude" class="form-label">Longitude:</label>
-                <input type="text" class="form-control" id="longitude" placeholder="Enter Longitude">
-            </div>
+            <div class="mb-3"><label for="latitude" class="form-label">Latitude:</label><input type="text" class="form-control" id="latitude" placeholder="Enter Latitude"></div>
+            <div class="mb-3"><label for="longitude" class="form-label">Longitude:</label><input type="text" class="form-control" id="longitude" placeholder="Enter Longitude"></div>
             <button id="setManualHomeBtn" class="btn btn-primary">Set Home Location Manually</button>
             <button id="useLocationServiceBtn" class="btn btn-info">Use My Current Location</button>
         </div>
@@ -132,20 +104,34 @@
         </div>
     </div>
 
-    <footer class="bg-dark text-white py-3 mt-4">
-        <div class="container text-center">
-            <p>&copy; 2024 DementiaLink. All rights reserved.</p>
+    <div id="chatContainer">
+        <div id="chatHeader"><span>AI Assistant</span><button id="closeChatBtn" class="btn btn-sm btn-light">×</button></div>
+        <div id="chatMessages"></div>
+        <div id="chatInputContainer">
+            <input type="text" id="chatInput" placeholder="Ask me anything...">
+            <button id="sendChatBtn">Send</button>
         </div>
+    </div>
+
+    <div id="aiIcon"><img src="https://img.icons8.com/ios-filled/50/ffffff/robot.png" alt="AI Chat"></div>
+
+    <footer class="bg-dark text-white py-3 mt-4">
+        <div class="container text-center"><p>© 2024 DementiaLink. All rights reserved.</p></div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
     <script>
-        // Firebase configuration
+        let leafletLoaded = false;
+        function onLeafletLoaded() {
+            leafletLoaded = true;
+            console.log('Leaflet loaded successfully');
+            if (auth.currentUser) initializeMap();
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyA5uZccOcy9Lsm-3qJspgJ38KemMe5G54w",
             authDomain: "ecspro-268aa.firebaseapp.com",
@@ -156,17 +142,18 @@
             appId: "1:259162778834:web:557901eef5253a3697110b"
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            alert('Failed to initialize application. Please try refreshing the page.');
+        }
+
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let map;
-        let homeLocation = null;
-        let homeMarker = null;
-        let geofenceCircle = null;
-        let patientMarker = null;
-        const geofenceRadius = 20; // meters
+        let map, homeLocation = null, homeMarker = null, geofenceCircle = null, patientMarker = null;
+        const geofenceRadius = 20;
 
         const loginDiv = document.getElementById('login');
         const signUpDiv = document.getElementById('signUp');
@@ -174,10 +161,15 @@
         const locationFormDiv = document.getElementById('locationForm');
         const mapContainerDiv = document.getElementById('mapContainer');
         const usernameDisplay = document.getElementById('username');
-
-
-
         const menuNav = document.getElementById('menuNav');
+        const chatContainer = document.getElementById('chatContainer');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const closeChatBtn = document.getElementById('closeChatBtn');
+        const sendChatBtn = document.getElementById('sendChatBtn');
+        const aiIcon = document.getElementById('aiIcon');
+
+        let hasGreeted = false;
 
         function toggleMenuVisibility() {
             if (loginDiv.style.display === 'block' || signUpDiv.style.display === 'block') {
@@ -187,62 +179,79 @@
             }
         }
 
-        // Call this function on page load and whenever the display state changes
-        document.getElementById('showSignUpLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            loginDiv.style.display = 'none';
-            signUpDiv.style.display = 'block';
-            toggleMenuVisibility();
-        });
-
-        document.getElementById('showLoginLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            signUpDiv.style.display = 'none';
-            loginDiv.style.display = 'block';
-            toggleMenuVisibility();
-        });
-
         auth.onAuthStateChanged(user => {
-            if (user) {
-                loginDiv.style.display = 'none';
-                signUpDiv.style.display = 'none';
-                profileDiv.style.display = 'block';
-                locationFormDiv.style.display = 'block';
-                mapContainerDiv.style.display = 'block';
-                usernameDisplay.innerText = user.displayName || user.email;
-                initializeMap();
-                startFallDetectionTracking(user.uid);
-                stopHomeTracking();
-
-                const userRef = database.ref('users/' + user.uid);
-                userRef.once('value').then(snapshot => {
-                    const userData = snapshot.val();
-                    if (userData && userData.homeLocation) {
-                        homeLocation = userData.homeLocation;
-                        drawGeofence(homeLocation);
-                        startLocationTracking(user.uid);
+            try {
+                if (user) {
+                    loginDiv.style.display = 'none';
+                    signUpDiv.style.display = 'none';
+                    profileDiv.style.display = 'block';
+                    locationFormDiv.style.display = 'block';
+                    mapContainerDiv.style.display = 'block';
+                    usernameDisplay.innerText = user.displayName || user.email;
+                    if (leafletLoaded) {
+                        initializeMap();
+                    } else {
+                        console.warn('Leaflet not loaded yet, waiting...');
+                        const checkLeafletInterval = setInterval(() => {
+                            if (leafletLoaded) {
+                                clearInterval(checkLeafletInterval);
+                                initializeMap();
+                            }
+                        }, 100);
                     }
-                });
-            } else {
-                loginDiv.style.display = 'block';
-                signUpDiv.style.display = 'none';
-                profileDiv.style.display = 'none';
-                locationFormDiv.style.display = 'none';
-                mapContainerDiv.style.display = 'none';
-                stopHomeTracking();
+                    startFallDetectionTracking(user.uid);
+                    stopHomeTracking();
+                    const userRef = database.ref('users/' + user.uid);
+                    userRef.once('value').then(snapshot => {
+                        const userData = snapshot.val();
+                        if (userData && userData.homeLocation) {
+                            homeLocation = userData.homeLocation;
+                            if (leafletLoaded) drawGeofence(homeLocation);
+                            startLocationTracking(user.uid);
+                        }
+                    }).catch(error => console.error('Error fetching user data:', error));
+                } else {
+                    loginDiv.style.display = 'block';
+                    signUpDiv.style.display = 'none';
+                    profileDiv.style.display = 'none';
+                    locationFormDiv.style.display = 'none';
+                    mapContainerDiv.style.display = 'none';
+                    chatContainer.style.display = 'none';
+                    hasGreeted = false;
+                    stopHomeTracking();
+                }
+                toggleMenuVisibility();
+            } catch (error) {
+                console.error('Auth state change error:', error);
             }
-            toggleMenuVisibility();
         });
 
         function initializeMap() {
-            if (!map) {
-                map = L.map('map').setView([37.4219999, -122.0840575], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap'
-                }).addTo(map);
+            try {
+                if (!leafletLoaded || typeof L === 'undefined') {
+                    console.error('Leaflet not fully loaded yet');
+                    return;
+                }
+                if (!map) {
+                    map = L.map('map').setView([37.4219999, -122.0840575], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '© OpenStreetMap'
+                    }).addTo(map);
+                    console.log('Map initialized');
+                }
+            } catch (error) {
+                console.error('Map initialization error:', error);
             }
         }
+
+        const leafletScript = document.createElement('script');
+        leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        leafletScript.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+        leafletScript.crossOrigin = '';
+        leafletScript.onload = () => onLeafletLoaded();
+        document.body.appendChild(leafletScript);
+
         document.getElementById('emailLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('emailInput').value;
@@ -258,9 +267,7 @@
             const email = document.getElementById('signUpEmail').value;
             const password = document.getElementById('signUpPassword').value;
             auth.createUserWithEmailAndPassword(email, password).then((userCredential) => {
-                // User signed up successfully
-                const user = userCredential.user;
-                console.log("User signed up:", user);
+                console.log("User signed up:", userCredential.user);
             }).catch(error => {
                 console.error("Sign-Up Error:", error);
                 alert("Sign-up failed: " + error.message);
@@ -271,18 +278,18 @@
             e.preventDefault();
             loginDiv.style.display = 'none';
             signUpDiv.style.display = 'block';
+            toggleMenuVisibility();
         });
 
         document.getElementById('showLoginLink').addEventListener('click', (e) => {
             e.preventDefault();
             signUpDiv.style.display = 'none';
             loginDiv.style.display = 'block';
+            toggleMenuVisibility();
         });
 
         document.getElementById('logout').addEventListener('click', () => {
-            auth.signOut().catch(error => {
-                console.error("Sign Out Error:", error);
-            });
+            auth.signOut().catch(error => console.error("Sign Out Error:", error));
         });
 
         document.getElementById('resetHomeBtn').addEventListener('click', () => {
@@ -290,28 +297,20 @@
                 homeLocation = null;
                 const userRef = database.ref('users/' + auth.currentUser.uid);
                 userRef.child('homeLocation').remove().then(() => {
-                    if (homeMarker) {
-                        map.removeLayer(homeMarker);
-                    }
-                    if (geofenceCircle) {
-                        map.removeLayer(geofenceCircle);
-                    }
+                    if (homeMarker) map.removeLayer(homeMarker);
+                    if (geofenceCircle) map.removeLayer(geofenceCircle);
                     alert('Home location has been reset.');
-                }).catch(error => {
-                    console.error("Reset Home Location Error:", error);
-                });
+                }).catch(error => console.error("Reset Home Location Error:", error));
             }
         });
 
         document.getElementById('setManualHomeBtn').addEventListener('click', () => {
             const lat = parseFloat(document.getElementById('latitude').value);
             const lng = parseFloat(document.getElementById('longitude').value);
-
             if (isNaN(lat) || isNaN(lng)) {
                 alert('Please enter valid latitude and longitude.');
                 return;
             }
-
             setHomeLocation(lat, lng);
         });
 
@@ -321,9 +320,7 @@
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
                     setHomeLocation(lat, lng);
-                }, error => {
-                    alert('Error getting location: ' + error.message);
-                });
+                }, error => alert('Error getting location: ' + error.message));
             } else {
                 alert('Geolocation is not supported by this browser.');
             }
@@ -332,77 +329,60 @@
         function setHomeLocation(lat, lng) {
             if (auth.currentUser) {
                 homeLocation = { lat, lng };
-
                 const userRef = database.ref('users/' + auth.currentUser.uid);
                 userRef.update({ homeLocation }).then(() => {
-                    console.log("Home location set successfully:", homeLocation);
-                    drawGeofence(homeLocation);
+                    console.log("Home location set:", homeLocation);
+                    if (leafletLoaded) drawGeofence(homeLocation);
                     startLocationTracking(auth.currentUser.uid);
-                }).catch(error => {
-                    console.error("Error setting home location:", error);
-                });
-            } else {
-                console.error("No user is currently logged in");
+                }).catch(error => console.error("Error setting home location:", error));
             }
         }
 
         function drawGeofence(location) {
-            if (homeMarker) {
-                map.removeLayer(homeMarker);
+            try {
+                if (!leafletLoaded || typeof L === 'undefined') {
+                    console.error('Leaflet not fully loaded yet');
+                    return;
+                }
+                if (homeMarker) map.removeLayer(homeMarker);
+                if (geofenceCircle) map.removeLayer(geofenceCircle);
+                homeMarker = L.marker([location.lat, location.lng]).addTo(map).bindPopup('Home Location');
+                geofenceCircle = L.circle([location.lat, location.lng], {
+                    color: 'red', fillColor: '#f03', fillOpacity: 0.2, radius: geofenceRadius
+                }).addTo(map);
+                map.setView([location.lat, location.lng], 13);
+            } catch (error) {
+                console.error('Draw geofence error:', error);
             }
-            if (geofenceCircle) {
-                map.removeLayer(geofenceCircle);
-            }
-
-            homeMarker = L.marker([location.lat, location.lng]).addTo(map)
-                .bindPopup('Home Location');
-
-            geofenceCircle = L.circle([location.lat, location.lng], {
-                color: 'red',
-                fillColor: '#f03',
-                fillOpacity: 0.2,
-                radius: geofenceRadius
-            }).addTo(map);
-
-            map.setView([location.lat, location.lng], 13);
         }
 
         function startLocationTracking(userId) {
-            console.log("Starting location tracking for user:", userId);
             const patientLocationRef = database.ref(`users/${userId}/location`);
             patientLocationRef.on('value', snapshot => {
                 const location = snapshot.val();
-                console.log("Received location data:", location);
                 if (location && location.latitude && location.longitude && homeLocation) {
                     const lat = parseFloat(location.latitude);
                     const lng = parseFloat(location.longitude);
-
                     if (isNaN(lat) || isNaN(lng)) {
                         console.error('Invalid location data:', location);
                         return;
                     }
-
-                    console.log('Valid patient location:', lat, lng);
-                    updatePatientMarker(lat, lng);
+                    if (leafletLoaded) updatePatientMarker(lat, lng);
                     checkGeofence(lat, lng);
-                } else {
-                    if (!location) console.log("No location data available");
-                    if (!location.latitude || !location.longitude) console.log("Incomplete location data");
-                    if (!homeLocation) console.log("Home location not set");
-                    console.log('Waiting for valid patient location or home location...');
                 }
-            }, error => {
-                console.error("Error fetching patient location:", error);
-            });
+            }, error => console.error("Error fetching patient location:", error));
         }
 
         function updatePatientMarker(lat, lng) {
-            if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
-                console.error('Invalid coordinates for patient marker:', lat, lng);
-                return;
-            }
-
             try {
+                if (!leafletLoaded || typeof L === 'undefined') {
+                    console.error('Leaflet not fully loaded yet');
+                    return;
+                }
+                if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+                    console.error('Invalid coordinates:', lat, lng);
+                    return;
+                }
                 if (patientMarker) {
                     patientMarker.setLatLng([lat, lng]);
                 } else {
@@ -410,44 +390,32 @@
                         icon: L.icon({
                             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
                             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                            iconSize: [25, 41],
-                            iconAnchor: [12, 41],
-                            popupAnchor: [1, -34],
-                            shadowSize: [41, 41]
+                            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
                         })
                     }).addTo(map);
                 }
                 patientMarker.bindPopup('Patient Location').openPopup();
                 map.setView([lat, lng], 13);
             } catch (error) {
-                console.error('Error updating patient marker:', error);
+                console.error('Update patient marker error:', error);
             }
         }
-        function checkGeofence(lat, lng) {
-            if (!homeLocation) {
-                console.log('Home location not set. Cannot check geofence.');
-                return;
-            }
 
+        function checkGeofence(lat, lng) {
+            if (!homeLocation) return;
             const distance = calculateDistance(homeLocation.lat, homeLocation.lng, lat, lng);
-            console.log('Distance from home:', distance.toFixed(2), 'km');
-            
             if (distance * 1000 > geofenceRadius) {
-                alert(`Geofence Alert: The patient has moved ${(distance * 1000).toFixed(0)} meters from home, which is beyond the ${geofenceRadius} meter limit.`);
+                alert(`Geofence Alert: Patient moved ${(distance * 1000).toFixed(0)}m from home (limit: ${geofenceRadius}m)`);
             }
         }
 
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Radius of the Earth in kilometers
+            const R = 6371;
             const dLat = deg2rad(lat2 - lat1);
             const dLon = deg2rad(lon2 - lon1);
-            const a = 
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distance = R * c; // Distance in kilometers
-            return distance;
+            return R * c;
         }
 
         function deg2rad(deg) {
@@ -456,58 +424,39 @@
 
         document.getElementById('fullscreenBtn').addEventListener('click', () => {
             const mapElement = document.getElementById('map');
-            if (mapElement.requestFullscreen) {
-                mapElement.requestFullscreen();
-            } else if (mapElement.mozRequestFullScreen) { // Firefox
-                mapElement.mozRequestFullScreen();
-            } else if (mapElement.webkitRequestFullscreen) { // Chrome, Safari and Opera
-                mapElement.webkitRequestFullscreen();
-            } else if (mapElement.msRequestFullscreen) { // IE/Edge
-                mapElement.msRequestFullscreen();
-            }
+            if (mapElement.requestFullscreen) mapElement.requestFullscreen();
+            else if (mapElement.mozRequestFullScreen) mapElement.mozRequestFullScreen();
+            else if (mapElement.webkitRequestFullscreen) mapElement.webkitRequestFullscreen();
+            else if (mapElement.msRequestFullscreen) mapElement.msRequestFullscreen();
         });
-        
+
         function startFallDetectionTracking(userId) {
-            console.log("Starting fall detection tracking for user:", userId);
             const fallDetectionRef = database.ref(`users/${userId}/fallDetected`);
-            
             fallDetectionRef.on('value', snapshot => {
                 const fallDetected = snapshot.val();
-                console.log("Fall detection status:", fallDetected);
-
-                if (fallDetected) {
-                    displayFallAlert();
-                } else {
-                    hideFallAlert();
-                }
-            }, error => {
-                console.error("Error fetching fall detection status:", error);
-            });
+                if (fallDetected) displayFallAlert();
+                else hideFallAlert();
+            }, error => console.error("Error fetching fall detection:", error));
         }
 
         function displayFallAlert() {
-            const fallAlertContainer = document.getElementById('fallAlertContainer');
-            fallAlertContainer.style.display = 'block';
+            document.getElementById('fallAlertContainer').style.display = 'block';
             alert('Fall detected! Please check on the patient.');
         }
 
         function hideFallAlert() {
-            const fallAlertContainer = document.getElementById('fallAlertContainer');
-            fallAlertContainer.style.display = 'none';
+            document.getElementById('fallAlertContainer').style.display = 'none';
         }
-        let isHomeTracking = false;
-        let homeTrackingInterval = null;
 
-        // Add this after other document.ready event listeners
+        let isHomeTracking = false, homeTrackingInterval = null;
+
         document.getElementById('toggleHomeTracking').addEventListener('click', () => {
             if (!auth.currentUser) {
                 alert('Please log in to use home tracking.');
                 return;
             }
-
             isHomeTracking = !isHomeTracking;
             const trackingStatus = document.getElementById('trackingStatus');
-            
             if (isHomeTracking) {
                 trackingStatus.textContent = 'Stop Home Tracking';
                 startHomeTracking();
@@ -519,34 +468,23 @@
 
         function startHomeTracking() {
             if (!navigator.geolocation) {
-                alert('Geolocation is not supported by your browser');
+                alert('Geolocation not supported by your browser');
                 return;
             }
-
             homeTrackingInterval = setInterval(() => {
                 navigator.geolocation.getCurrentPosition(
-                    position => {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-                        updateHomeLocation(lat, lng);
-                    },
+                    position => updateHomeLocation(position.coords.latitude, position.coords.longitude),
                     error => {
-                        console.error('Error getting location:', error);
+                        console.error('Location error:', error);
                         stopHomeTracking();
                         alert('Failed to get location: ' + error.message);
                     }
                 );
-            }, 60000); // Update every minute
-
-            // Initial location update
+            }, 60000);
             navigator.geolocation.getCurrentPosition(
-                position => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    updateHomeLocation(lat, lng);
-                },
+                position => updateHomeLocation(position.coords.latitude, position.coords.longitude),
                 error => {
-                    console.error('Error getting initial location:', error);
+                    console.error('Initial location error:', error);
                     stopHomeTracking();
                     alert('Failed to get initial location: ' + error.message);
                 }
@@ -554,10 +492,8 @@
         }
 
         function stopHomeTracking() {
-            if (homeTrackingInterval) {
-                clearInterval(homeTrackingInterval);
-                homeTrackingInterval = null;
-            }
+            if (homeTrackingInterval) clearInterval(homeTrackingInterval);
+            homeTrackingInterval = null;
             isHomeTracking = false;
             document.getElementById('trackingStatus').textContent = 'Start Home Tracking';
         }
@@ -570,56 +506,129 @@
                     lastUpdated: new Date().toISOString()
                 }).then(() => {
                     console.log('Home location updated:', { lat, lng });
-                    drawGeofence({ lat, lng });
-                }).catch(error => {
-                    console.error('Error updating home location:', error);
-                });
+                    if (leafletLoaded) drawGeofence({ lat, lng });
+                }).catch(error => console.error('Update home location error:', error));
             }
         }
-
-
 
         document.getElementById('patientSafeBtn').addEventListener('click', () => {
             if (auth.currentUser) {
                 const fallDetectionRef = database.ref(`users/${auth.currentUser.uid}/fallDetected`);
                 fallDetectionRef.set(false).then(() => {
-                    console.log("Fall detection status reset successfully");
+                    console.log("Fall status reset");
                     hideFallAlert();
                 }).catch(error => {
-                    console.error("Error resetting fall detection status:", error);
-                    alert("Failed to reset fall detection status. Please try again.");
+                    console.error("Error resetting fall status:", error);
+                    alert("Failed to reset fall status.");
                 });
-            } else {
-                console.error("No user is currently logged in");
-                alert("You must be logged in to perform this action.");
             }
         });
 
+        aiIcon.addEventListener('click', () => {
+            if (!auth.currentUser) {
+                alert('Please log in to use the chat feature.');
+                return;
+            }
+            chatContainer.style.display = chatContainer.style.display === 'none' ? 'flex' : 'none';
+            if (chatContainer.style.display === 'flex') {
+                chatContainer.classList.add('open');
+                chatInput.focus();
+                if (!hasGreeted) {
+                    const greeting = `Hello, ${auth.currentUser.displayName || 'User'}! I’m your DementiaLink Healthcare Assistant. How can I assist you today with your health or caregiving needs?`;
+                    addMessage(greeting, 'ai-message');
+                    hasGreeted = true;
+                }
+            } else {
+                chatContainer.classList.remove('open');
+            }
+        });
 
+        closeChatBtn.addEventListener('click', () => {
+            chatContainer.style.display = 'none';
+            chatContainer.classList.remove('open');
+        });
 
+        sendChatBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
 
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
 
+            if (!auth.currentUser) {
+                addMessage('Error: Please log in to use the chat.', 'ai-message');
+                return;
+            }
 
-        // Uncomment the following function and its call to simulate patient movement (for testing purposes)
-        
-        /*function simulatePatientMovement(userId) {
-            const patientLocationRef = database.ref(`users/${userId}/location`);
-            let lat = 16.49541;
-            let lng = 80.500385;
+            addMessage(message, 'user-message');
+            chatInput.value = '';
+            chatInput.disabled = true;
+            sendChatBtn.disabled = true;
 
-            setInterval(() => {
-                lat += (Math.random() - 0.5) * 0.001;
-                lng += (Math.random() - 0.5) * 0.001;
-                patientLocationRef.set({ latitude: lat, longitude: lng });
-            }, 50000); // Update every 5 seconds
+            getAIResponse(message)
+                .then(response => addMessage(response, 'ai-message'))
+                .catch(error => {
+                    console.error('Chat error:', error);
+                    addMessage('Error: Unable to get AI response. Please try again.', 'ai-message');
+                })
+                .finally(() => {
+                    chatInput.disabled = false;
+                    sendChatBtn.disabled = false;
+                    chatInput.focus();
+                });
         }
 
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                simulatePatientMovement(user.uid);
+        function addMessage(text, className) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${className}`;
+            messageDiv.textContent = text;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function getAIResponse(message) {
+            try {
+                const userId = auth.currentUser.uid;
+                if (!userId) throw new Error('User ID is not available');
+
+                // Define healthcare AI context with strict instruction to answer only the question
+                const healthcareContext = `
+                    You are a healthcare assistant for DementiaLink, designed to support caregivers and patients with dementia-related needs.
+                    Provide a concise, direct, and helpful response to the user's question only. Do not include unsolicited information or user data unless explicitly asked for.
+                    Current date: ${new Date().toISOString().split('T')[0]}.
+                    User question: ${message}
+                `;
+
+                const response = await fetch('http://localhost:3000/api/gemini', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: healthcareContext,
+                        userId: userId
+                    })
+                });
+
+                if (!response.ok) {
+                    let errorMessage = `API request failed: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage += ` - ${errorData.error || 'Unknown error'}`;
+                        if (errorData.details) errorMessage += ` (${errorData.details})`;
+                    } catch (jsonError) {
+                        console.warn('Failed to parse error response:', jsonError);
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = await response.json();
+                return data.text || 'No response received';
+            } catch (error) {
+                console.error('Fetch error:', error);
+                throw error;
             }
-        });*/
-        
+        }
     </script>
 </body>
 </html>
